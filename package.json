@@ -1,17 +1,16 @@
 {
-  "name": "users-uninen-code-temp-astro-cloudflare-process-repro",
+  "name": "astro-cloudflare-process-repro",
   "type": "module",
-  "version": "0.0.1",
-  "engines": {
-    "node": ">=22.22.0"
-  },
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
-    "preview": "astro preview",
-    "astro": "astro"
+    "preview": "astro preview"
   },
   "dependencies": {
-    "astro": "^7.4.0"
+    "@astrojs/cloudflare": "14.4.0",
+    "@astrojs/vue": "7.1.0",
+    "@vuetify/v0": "1.2.3",
+    "astro": "7.4.0",
+    "vue": "3.5.44"
   }
 }

@@ -1,43 +1,45 @@
-# Astro Starter Kit: Minimal
+# Cloudflare 14.4.0 breaks a client-only Vue island
+
+Uses Astro 7.4.0, Vue 3.5.44, `@astrojs/vue` 7.1.0, `@vuetify/v0` 1.2.3, and
+`@astrojs/cloudflare` 14.4.0. The page contains one Vue component with one Vuetify button.
+
+## Reproduce
+
+Requires Node.js 22.22.0 or newer and pnpm.
 
 ```sh
-pnpm create astro@latest -- --template minimal
+pnpm install
+pnpm build
+pnpm preview
 ```
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
+Open <http://localhost:4321/>. Expected: a button labelled `Vue rendered`.
+Actual: a blank page. The browser console reports an Astro hydration error containing
+`ReferenceError: process is not defined`. The production build itself succeeds.
 
-## 🚀 Project Structure
+## Cause
 
-Inside of your Astro project, you'll see the following folders and files:
+In production, `@vuetify/v0@1.2.3` reads `process.env.VITE_LOGGER_ENABLED` during module loading.
+Browsers do not provide Node.js's `process` object.
 
-```text
-/
-├── public/
-├── src/
-│   └── pages/
-│       └── index.astro
-└── package.json
+Vite normally replaces `process.env` with `{}` in browser bundles. The Cloudflare adapter instead sets
+`vite.define['process.env'] = 'process.env'` on the shared build configuration. This tells Vite to preserve
+that reference in browser code too.
+
+Adapter 14.3.3 masked this configuration leak by injecting a dummy `process.env` object into browser
+bundles. In 14.4.0, [PR #18213](https://github.com/withastro/astro/pull/18213) restricted that shim to the
+server environments but left the define global. Vuetify's remaining reference now throws before Vue
+can mount the component.
+
+## Control
+
+Stop the preview, change only the adapter version, and rebuild:
+
+```sh
+pnpm preview stop
+pnpm add --save-exact @astrojs/cloudflare@14.3.3
+pnpm build
+pnpm preview
 ```
 
-Astro looks for `.astro` or `.md` files in the `src/pages/` directory. Each page is exposed as a route based on its file name.
-
-There's nothing special about `src/components/`, but that's where we like to put any Astro/React/Vue/Svelte/Preact components.
-
-Any static assets, like images, can be placed in the `public/` directory.
-
-## 🧞 Commands
-
-All commands are run from the root of the project, from a terminal:
-
-| Command                   | Action                                           |
-| :------------------------ | :----------------------------------------------- |
-| `pnpm install`             | Installs dependencies                            |
-| `pnpm dev`             | Starts local dev server at `localhost:4321`      |
-| `pnpm build`           | Build your production site to `./dist/`          |
-| `pnpm preview`         | Preview your build locally, before deploying     |
-| `pnpm astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `pnpm astro -- --help` | Get help using the Astro CLI                     |
-
-## 👀 Want to learn more?
-
-Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
+The button renders without browser errors. Both versions were verified locally in Firefox.
