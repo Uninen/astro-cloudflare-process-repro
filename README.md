@@ -1,14 +1,21 @@
-# Cloudflare 14.4.0 breaks a client-only Vue island
+# Cloudflare 14.4.2 breaks a client-only Vue island
 
-Uses Astro 7.4.0, Vue 3.5.44, `@astrojs/vue` 7.1.0, `@vuetify/v0` 1.2.3, and
-`@astrojs/cloudflare` 14.4.0. The page contains one Vue component with one Vuetify button.
+Verified in Firefox on 2026-10-25 with the latest npm releases: Astro 7.4.2, Vue 3.5.44,
+`@astrojs/vue` 7.1.2, `@vuetify/v0` 1.3.0, and `@astrojs/cloudflare` 14.4.2.
+The page contains one Vue component with one Vuetify button.
+
+Refresh dependencies directly from the registry with the release cooldown disabled:
+
+```sh
+pnpm --config.minimumReleaseAge=0 --config.preferOnline=true update --latest
+```
 
 ## Reproduce
 
 Requires Node.js 22.22.0 or newer and pnpm.
 
 ```sh
-pnpm install
+pnpm --config.minimumReleaseAge=0 install
 pnpm build
 pnpm preview
 ```
@@ -19,7 +26,7 @@ Actual: a blank page. The browser console reports an Astro hydration error conta
 
 ## Cause
 
-In production, `@vuetify/v0@1.2.3` reads `process.env.VITE_LOGGER_ENABLED` during module loading.
+In production, `@vuetify/v0@1.3.0` reads `process.env.VITE_LOGGER_ENABLED` during module loading.
 Browsers do not provide Node.js's `process` object.
 
 Vite normally replaces `process.env` with `{}` in browser bundles. The Cloudflare adapter instead sets
@@ -28,8 +35,8 @@ that reference in browser code too.
 
 Adapter 14.3.3 masked this configuration leak by injecting a dummy `process.env` object into browser
 bundles. In 14.4.0, [PR #18213](https://github.com/withastro/astro/pull/18213) restricted that shim to the
-server environments but left the define global. Vuetify's remaining reference now throws before Vue
-can mount the component.
+server environments but left the define global. This remains unchanged in 14.4.2. Vuetify's remaining
+reference throws before Vue can mount the component.
 
 ## Control
 
@@ -37,9 +44,10 @@ Stop the preview, change only the adapter version, and rebuild:
 
 ```sh
 pnpm preview stop
-pnpm add --save-exact @astrojs/cloudflare@14.3.3
+pnpm --config.minimumReleaseAge=0 add --save-exact @astrojs/cloudflare@14.3.3
 pnpm build
 pnpm preview
 ```
 
-The button renders without browser errors. Both versions were verified locally in Firefox.
+The button renders without browser errors. Both adapter versions were verified in Firefox on
+2026-10-25 with all other dependencies kept at the versions listed above.
